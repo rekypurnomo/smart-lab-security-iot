@@ -1,15 +1,16 @@
-# MQTT Broker Testing
+# MQTT Broker Test
 
-Broker: Eclipse Mosquitto
-Host: 127.0.0.1
-Port: 1883
+## Configuration
+- Broker: Eclipse Mosquitto
+- Host: 127.0.0.1
+- Port: 1883
+- Protocol: MQTT
 
 ## Topic
 smartlab/security/event
 
-## Test
-Publisher sends: MQTT_TEST_BERHASIL
-Subscriber receives: MQTT_TEST_BERHASIL
+## Test Result
+Message sent: MQTT_TEST_BERHASIL
+Message received: MQTT_TEST_BERHASIL
 
-## Result
-Local MQTT publish/subscribe test successful.
+Status: PASSED
