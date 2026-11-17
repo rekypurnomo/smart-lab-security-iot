@@ -1,0 +1,7 @@
+node_modules/
+.env
+.env.*
+!.env.example
+*.log
+flows_cred.json
+*flows_cred*.json
