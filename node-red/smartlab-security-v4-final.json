@@ -1,0 +1,789 @@
+[
+    {
+        "id": "sl_tab",
+        "type": "tab",
+        "label": "Smart Lab Security - Dashboard",
+        "disabled": false,
+        "info": "Dashboard 2.0 + MQTT + demo. Demo inject disabled by default after testing."
+    },
+    {
+        "id": "sl_ui",
+        "type": "ui-template",
+        "z": "sl_tab",
+        "group": "sl_group",
+        "page": "",
+        "ui": "",
+        "name": "Smart Lab Security Panel",
+        "order": 1,
+        "width": "12",
+        "height": "16",
+        "head": "",
+        "format": "<template>\n<div class=\"sl-shell\">\n <div class=\"sl-header\"><div><span class=\"sl-mark\">◈</span> SMART LAB <b>SECURITY CENTER</b><small> ESP32-S3 • ACCESS & INTRUSION MONITORING</small></div><span :class=\"['sl-pill',live?'sl-green':'sl-amber']\">{{ live ? '● LIVE MQTT' : (state.source==='DEMO' ? '● DEMO MODE' : '○ WAITING FOR DATA') }}</span></div>\n <div class=\"sl-layout\">\n  <aside class=\"sl-side\">\n   <h3>SYSTEM STATUS</h3>\n   <div class=\"sl-line\"><span>Communication</span><strong :class=\"live?'ok':'warn'\">{{live?'ONLINE':'OFFLINE'}}</strong></div>\n   <div class=\"sl-line\"><span>Access mode</span><strong>{{state.mode}}</strong></div>\n   <div class=\"sl-line\"><span>Alarm</span><strong :class=\"state.alarm?'bad':'ok'\">{{state.alarm?'ACTIVE':'NORMAL'}}</strong></div>\n   <div class=\"sl-line\"><span>Buzzer</span><strong>{{state.buzzer?'ON':'OFF'}}</strong></div>\n   <h3>OPERATIONS</h3>\n   <button @click=\"sendCommand('NORMAL')\">NORMAL MODE</button>\n   <button @click=\"sendCommand('AFTERHOURS')\">AFTERHOURS MODE</button>\n   <button class=\"amber\" @click=\"sendCommand('SILENCE')\">SILENCE BUZZER</button>\n   <p class=\"sl-notice\">Kontrol ini mengirim perintah MQTT. Perangkat hanya berubah jika firmware menerima perintahnya. Tidak ada remote UNLOCK.</p>\n  </aside>\n  <main class=\"sl-main\">\n   <section class=\"sl-cards\">\n    <div class=\"sl-card\"><span>DOOR SENSOR</span><strong :class=\"state.door==='OPEN'?'bad':'ok'\">{{state.door}}</strong><small>Push button GPIO 21</small></div>\n    <div class=\"sl-card\"><span>LOCK STATUS</span><strong :class=\"state.lock==='UNLOCKED'?'warn':'ok'\">{{state.lock}}</strong><small>Servo GPIO 40</small></div>\n    <div class=\"sl-card\"><span>PIR MOTION</span><strong :class=\"state.motion?'warn':'ok'\">{{state.motion?'DETECTED':'CLEAR'}}</strong><small>GPIO 38</small></div>\n    <div class=\"sl-card\"><span>SECURITY ALARM</span><strong :class=\"state.alarm?'bad':'ok'\">{{state.alarm?'TRIGGERED':'SECURE'}}</strong><small>{{state.reason||'No alarm'}}</small></div>\n   </section>\n   <section class=\"sl-cards sl-bottom\">\n    <div class=\"sl-card\"><span>ACCESS METHOD</span><strong>{{state.lastAccess || '—'}}</strong><small>RFID or Keypad</small></div>\n    <div class=\"sl-card\"><span>FAILED RFID</span><strong>{{state.failedRFID ?? 0}} <em>/3</em></strong></div>\n    <div class=\"sl-card\"><span>FAILED PIN</span><strong>{{state.failedPIN ?? 0}} <em>/3</em></strong></div>\n    <div class=\"sl-card\"><span>RELAY / BUZZER</span><strong>{{state.relay?'ON':'OFF'}} / {{state.buzzer?'ON':'OFF'}}</strong><small>Alarm outputs</small></div>\n   </section>\n   <section class=\"sl-panel\"><div class=\"sl-heading\">EVENTS & ALERTS <span>Last update: {{timeLabel}}</span></div>\n    <div class=\"sl-events\"><div v-if=\"!state.events || !state.events.length\" class=\"sl-empty\">Belum ada kejadian yang diterima.</div><div v-for=\"(ev,i) in (state.events||[]).slice(0,12)\" :key=\"i\" class=\"sl-event\"><time>{{ev.time||'--:--:--'}}</time><b :class=\"/ALARM|DENIED|FORCED/.test(ev.type)?'bad':'ok'\">{{ev.type}}</b><span>{{ev.detail}}</span></div></div>\n   </section>\n   <div class=\"sl-footer\">Telemetry topic: smartlab/security/telemetry • Events: smartlab/security/event • Commands: smartlab/security/cmd <span>RECEIVED: {{state.count||0}}</span></div>\n  </main>\n </div>\n</div>\n</template>\n<script>\nexport default {\n data(){return {state:{source:'WAIT',door:'UNKNOWN',lock:'UNKNOWN',motion:false,mode:'NORMAL',alarm:false,buzzer:false,relay:false,failedRFID:0,failedPIN:0,lastAccess:'—',reason:'',events:[],count:0,updatedAt:''}, lastReceived:0, tick:0, intervalId:null}},\n computed:{live(){return this.state.source==='MQTT' && (this.tick-this.lastReceived)<10000}, timeLabel(){return this.state.updatedAt||'—'}},\n watch:{msg:{handler(v){if(v && v.payload && typeof v.payload==='object' && v.payload.kind==='state'){this.state=v.payload.state; if(this.state.source==='MQTT')this.lastReceived=Date.now();}},deep:true}},\n mounted(){this.tick=Date.now();this.intervalId=setInterval(()=>{this.tick=Date.now()},1000)},\n unmounted(){if(this.intervalId)clearInterval(this.intervalId)},\n methods:{sendCommand(cmd){this.send({topic:'dashboard-command',payload:cmd})}}\n}\n</script>\n<style>\n.sl-shell{color:#eef6fa;background:#161b20;font-family:Arial,system-ui,sans-serif;border-radius:8px;overflow:hidden;min-height:620px}.sl-header{height:auto;min-height:56px;display:flex;align-items:center;justify-content:space-between;gap:12px;background:#008b8f;padding:13px 20px;font-size:15px;font-weight:600;flex-wrap:wrap}.sl-header small{font-size:10px;opacity:.82;font-weight:400;margin-left:8px}.sl-mark{font-size:24px;vertical-align:middle}.sl-pill{padding:7px 12px;border-radius:99px;font-size:11px;background:#193b3d}.sl-green{color:#66f2b4}.sl-amber{color:#f8d179}.sl-layout{display:grid;grid-template-columns:230px minmax(0,1fr);gap:8px;padding:9px}.sl-side{background:#22272d;padding:12px;border-radius:5px;min-width:0}.sl-side h3{font-size:12px;border-bottom:1px solid #39414a;margin:5px 0 12px;padding-bottom:10px}.sl-side h3:not(:first-child){margin-top:25px}.sl-line{display:flex;justify-content:space-between;gap:8px;padding:10px 0;border-bottom:1px solid #333b42;font-size:12px}.sl-line strong{font-size:12px}.sl-side button{width:100%;padding:12px 7px;margin-bottom:10px;background:#1365a9;color:white;border:0;border-radius:4px;font-weight:700;cursor:pointer}.sl-side button:nth-of-type(2){background:#067c4e}.sl-side button.amber{background:#a45114}.sl-notice{color:#9daeb8;font-size:11px;line-height:1.5}.sl-main{min-width:0}.sl-cards{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}.sl-bottom{margin-top:8px}.sl-card{background:#242a30;border-left:4px solid #17afc3;min-height:112px;padding:16px 14px;display:flex;flex-direction:column;gap:10px;min-width:0}.sl-card span{font-size:11px;font-weight:700;color:#c5d6dc;letter-spacing:.5px}.sl-card strong{font-size:20px;word-wrap:break-word}.sl-card em{font-style:normal;font-size:13px;color:#8396a2}.sl-card small{font-size:11px;color:#a0b0b8;overflow-wrap:anywhere}.ok{color:#60e4a0!important}.bad{color:#ff7979!important}.warn{color:#ffcc74!important}.sl-panel{background:#242a30;margin-top:8px;min-height:220px}.sl-heading{border-bottom:1px solid #3a424a;background:#1e2328;font-size:12px;font-weight:700;padding:13px;display:flex;justify-content:space-between}.sl-heading span{font-weight:400;color:#91a7b1}.sl-events{padding:8px 12px;max-height:290px;overflow-y:auto}.sl-event{display:grid;grid-template-columns:85px 150px minmax(0,1fr);gap:12px;padding:9px 3px;border-bottom:1px solid #343c43;font-size:12px;align-items:start}.sl-event time{color:#a1b1bd}.sl-event span{overflow-wrap:anywhere}.sl-empty{color:#8fa1ac;padding:20px 5px;font-size:13px}.sl-footer{display:flex;gap:10px;justify-content:space-between;padding:12px;color:#9bb1be;font-size:10px;flex-wrap:wrap}@media(max-width:950px){.sl-cards{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:650px){.sl-layout{grid-template-columns:1fr}.sl-cards{grid-template-columns:1fr 1fr}.sl-header small{display:block}.sl-event{grid-template-columns:65px 95px minmax(0,1fr);gap:6px;font-size:10px}.sl-card strong{font-size:16px}}\n</style>",
+        "storeOutMessages": true,
+        "passthru": false,
+        "resendOnRefresh": true,
+        "templateScope": "local",
+        "className": "",
+        "x": 790,
+        "y": 200,
+        "wires": [
+            [
+                "sl_cmd"
+            ]
+        ]
+    },
+    {
+        "id": "sl_mqtttele",
+        "type": "mqtt in",
+        "z": "sl_tab",
+        "name": "ESP32 Telemetry",
+        "topic": "smartlab/security/telemetry",
+        "qos": "0",
+        "datatype": "auto-detect",
+        "broker": "sl_broker",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 130,
+        "y": 120,
+        "wires": [
+            [
+                "sl_agg"
+            ]
+        ]
+    },
+    {
+        "id": "sl_mqttevent",
+        "type": "mqtt in",
+        "z": "sl_tab",
+        "name": "Security Events",
+        "topic": "smartlab/security/event",
+        "qos": "0",
+        "datatype": "auto-detect",
+        "broker": "sl_broker",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 120,
+        "y": 180,
+        "wires": [
+            [
+                "sl_agg"
+            ]
+        ]
+    },
+    {
+        "id": "sl_agg",
+        "type": "function",
+        "z": "sl_tab",
+        "name": "State + event log",
+        "func": "const initial = {source:'WAIT', door:'UNKNOWN', lock:'UNKNOWN', motion:false, mode:'NORMAL', alarm:false, reason:'', buzzer:false, relay:false, failedRFID:0, failedPIN:0, lastAccess:'—', count:0, updatedAt:'', events:[]};\nlet s=flow.get('smartlab_state') || initial;\nconst p=(typeof msg.payload==='string') ? (()=>{try{return JSON.parse(msg.payload)}catch(e){return null}})() : msg.payload;\nif (!p || typeof p!=='object') return null;\nif (msg.topic==='smartlab/security/telemetry') {\n const allowed=['door','lock','motion','mode','alarm','reason','buzzer','relay','failedRFID','failedPIN','lastAccess'];\n for(const k of allowed) if(Object.prototype.hasOwnProperty.call(p,k))s[k]=p[k];\n s.source='MQTT';s.count=(s.count||0)+1;s.updatedAt=new Date().toLocaleTimeString('id-ID');\n} else if(msg.topic==='smartlab/security/event') {\n const ev={time:new Date().toLocaleTimeString('id-ID'),type:String(p.type||'EVENT').slice(0,40),detail:String(p.detail||'').slice(0,200)};\n s.events=[ev,...(s.events||[])].slice(0,30);s.source='MQTT';s.updatedAt=ev.time;\n} else if(msg.topic==='DEMO') {\n s={...s,...p,source:'DEMO',count:(s.count||0)+1,updatedAt:new Date().toLocaleTimeString('id-ID')};\n if(p.demoEvent)s.events=[{time:s.updatedAt,type:p.demoEvent,detail:'Simulasi dashboard (bukan perangkat nyata)'},...(s.events||[])].slice(0,30);\n} else {return null}\nflow.set('smartlab_state',s);\nreturn {payload:{kind:'state',state:s}};",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 550,
+        "y": 200,
+        "wires": [
+            [
+                "sl_ui",
+                "sl_debug"
+            ]
+        ]
+    },
+    {
+        "id": "sl_cmd",
+        "type": "function",
+        "z": "sl_tab",
+        "name": "Safe dashboard commands",
+        "func": "const c=String(msg.payload||'').toUpperCase().trim();\n// Hanya kendali non-kritis; tanpa UNLOCK/RESET lewat dashboard.\nif (!['NORMAL','AFTERHOURS','SILENCE'].includes(c))return null;\nreturn {topic:'smartlab/security/cmd',payload:c,qos:'0',retain:'false'};",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1050,
+        "y": 200,
+        "wires": [
+            [
+                "sl_mqttout"
+            ]
+        ]
+    },
+    {
+        "id": "sl_mqttout",
+        "type": "mqtt out",
+        "z": "sl_tab",
+        "name": "Command to ESP32",
+        "topic": "",
+        "qos": "",
+        "retain": "",
+        "respTopic": "",
+        "contentType": "",
+        "userProps": "",
+        "correl": "",
+        "expiry": "",
+        "broker": "sl_broker",
+        "x": 1250,
+        "y": 200,
+        "wires": []
+    },
+    {
+        "id": "sl_debug",
+        "type": "debug",
+        "z": "sl_tab",
+        "name": "SmartLab Status Debug",
+        "active": false,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 790,
+        "y": 310,
+        "wires": []
+    },
+    {
+        "id": "sl_inject",
+        "type": "inject",
+        "z": "sl_tab",
+        "name": "DEMO: tekan untuk data simulasi",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "NODE_RED_MQTT_TEST",
+        "payloadType": "str",
+        "x": 170,
+        "y": 280,
+        "wires": [
+            [
+                "sl_demo"
+            ]
+        ]
+    },
+    {
+        "id": "sl_demo",
+        "type": "function",
+        "z": "sl_tab",
+        "name": "Demo sequence (manual)",
+        "func": "let n=(context.get('n')||0)+1;context.set('n',n);\nlet scene=n%6;\nconst base={door:'CLOSED',lock:'LOCKED',motion:false,mode:'NORMAL',alarm:false,reason:'',buzzer:false,relay:false,failedRFID:0,failedPIN:0,lastAccess:'—'};\nif(scene===1){base.lock='UNLOCKED';base.lastAccess='RFID';base.demoEvent='ACCESS_GRANTED'}\nif(scene===2){base.door='OPEN';base.lock='UNLOCKED';base.lastAccess='RFID';base.demoEvent='DOOR_OPEN'}\nif(scene===3){base.door='CLOSED';base.lock='LOCKED';base.demoEvent='DOOR_CLOSED'}\nif(scene===4){base.failedPIN=2;base.demoEvent='PIN_DENIED'}\nif(scene===5){base.alarm=true;base.failedPIN=3;base.reason='PIN_SALAH_3_KALI';base.buzzer=true;base.relay=true;base.demoEvent='ALARM_TRIGGERED'}\nif(scene===0){base.demoEvent='ALARM_RESET'}\nreturn {topic:'DEMO',payload:base};",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 470,
+        "y": 280,
+        "wires": [
+            [
+                "sl_agg"
+            ]
+        ]
+    },
+    {
+        "id": "ecf786338d99f9a3",
+        "type": "mqtt in",
+        "z": "sl_tab",
+        "d": true,
+        "name": "Security Command Receiver",
+        "topic": "smartlab/security/cmd",
+        "qos": "0",
+        "datatype": "auto-detect",
+        "broker": "sl_broker",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 160,
+        "y": 460,
+        "wires": [
+            [
+                "a7fc13a0ee777d53"
+            ]
+        ]
+    },
+    {
+        "id": "a7fc13a0ee777d53",
+        "type": "function",
+        "z": "sl_tab",
+        "d": true,
+        "name": "Security Simulation Engine",
+        "func": "\nconst command = String(msg.payload)\n    .trim()\n    .toUpperCase();\n\nlet state = flow.get(\"smartlab_sim_state\") || {\n    door: \"CLOSED\",\n    lock: \"LOCKED\",\n    pir: \"CLEAR\",\n    alarm: false,\n    buzzer: false,\n    relay: false,\n    mode: \"NORMAL\",\n    rfid_failed: 0,\n    pin_failed: 0\n};\n\nswitch (command) {\n    case \"AFTERHOURS\":\n        state.mode = \"AFTERHOURS\";\n        break;\n\n    case \"NORMAL\":\n        state.mode = \"NORMAL\";\n        break;\n\n    case \"SILENCE\":\n        state.buzzer = false;\n        break;\n\n    default:\n        node.warn(\"Unknown command: \" + command);\n        return null;\n}\n\nflow.set(\"smartlab_sim_state\", state);\n\nmsg.topic = \"smartlab/security/telemetry\";\nmsg.payload = JSON.stringify(state);\n\nnode.status({\n    fill: \"green\",\n    shape: \"dot\",\n    text: state.mode\n});\n\nreturn msg;\n",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 520,
+        "y": 460,
+        "wires": [
+            [
+                "49f86b70eac93320"
+            ]
+        ]
+    },
+    {
+        "id": "49f86b70eac93320",
+        "type": "mqtt out",
+        "z": "sl_tab",
+        "d": true,
+        "name": "Simulation Telemetry Publisher",
+        "topic": "smartlab/security/telemetry",
+        "qos": "0",
+        "retain": "false",
+        "respTopic": "",
+        "contentType": "",
+        "userProps": "",
+        "correl": "",
+        "expiry": "",
+        "broker": "sl_broker",
+        "x": 1010,
+        "y": 460,
+        "wires": []
+    },
+    {
+        "id": "smartlab_v2_cmd_in",
+        "type": "mqtt in",
+        "z": "sl_tab",
+        "name": "V2 Dashboard Commands",
+        "topic": "smartlab/security/cmd",
+        "qos": "0",
+        "datatype": "auto-detect",
+        "broker": "sl_broker",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 150,
+        "y": 550,
+        "wires": [
+            [
+                "smartlab_v2_engine"
+            ]
+        ]
+    },
+    {
+        "id": "smartlab_v2_sim_in",
+        "type": "mqtt in",
+        "z": "sl_tab",
+        "name": "V2 Scenario Commands",
+        "topic": "smartlab/security/sim/cmd",
+        "qos": "0",
+        "datatype": "auto-detect",
+        "broker": "sl_broker",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 150,
+        "y": 600,
+        "wires": [
+            [
+                "smartlab_v2_engine"
+            ]
+        ]
+    },
+    {
+        "id": "smartlab_v2_tick",
+        "type": "inject",
+        "z": "sl_tab",
+        "name": "V2 Heartbeat setiap 2 detik",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "2",
+        "crontab": "",
+        "once": true,
+        "onceDelay": "0.5",
+        "topic": "smartlab/security/sim/tick",
+        "payload": "TICK",
+        "payloadType": "str",
+        "x": 160,
+        "y": 650,
+        "wires": [
+            [
+                "smartlab_v2_engine"
+            ]
+        ]
+    },
+    {
+        "id": "smartlab_v2_engine",
+        "type": "function",
+        "z": "sl_tab",
+        "name": "Security Simulation Engine V2",
+        "func": "// Smart Lab Security Simulation Engine V2\n// Node-RED Function node, 2 outputs:\n//   Output 1 -> MQTT Out, smartlab/security/telemetry\n//   Output 2 -> MQTT Out, smartlab/security/event\n// INPUT: MQTT cmd, MQTT sim/cmd, or Inject TICK every 2 seconds.\n// This simulator never operates a physical lock.\n\nconst TELE = 'smartlab/security/telemetry';\nconst EVENT = 'smartlab/security/event';\nconst now = Date.now();\nconst topic = String(msg.topic || '');\nconst raw = typeof msg.payload === 'string' ? msg.payload : String(msg.payload ?? '');\nconst command = raw.trim().toUpperCase();\n\nlet s = context.get('state') || {\n    door: 'CLOSED', lock: 'LOCKED', motion: false,\n    alarm: false, reason: '', buzzer: false, relay: false,\n    mode: 'NORMAL', failedRFID: 0, failedPIN: 0,\n    lastAccess: '—', unlockedAt: 0, openedAfterUnlock: false,\n    buzzerSilenced: false\n};\nlet events = [];\nlet changed = false;\n\nfunction record(type, detail) {\n    events.push({topic: EVENT, payload: JSON.stringify({\n        type, detail, source: 'SIMULATOR', timestamp: new Date(now).toISOString()\n    }), qos: '0', retain: 'false'});\n    changed = true;\n}\nfunction alarm(reason) {\n    if (s.alarm) return;\n    s.alarm = true;\n    s.reason = reason;\n    s.buzzerSilenced = false;\n    s.buzzer = true;\n    s.relay = true;\n    record('ALARM_TRIGGERED', reason);\n}\nfunction unlock(method) {\n    if (s.alarm || s.door === 'OPEN') {\n        record('ACCESS_BLOCKED', 'Alarm aktif atau pintu terbuka');\n        return;\n    }\n    s.lock = 'UNLOCKED';\n    s.unlockedAt = now;\n    s.openedAfterUnlock = false;\n    s.lastAccess = method;\n    s.failedRFID = 0;\n    s.failedPIN = 0;\n    record('ACCESS_GRANTED', 'Autentikasi melalui ' + method);\n}\nfunction lock(reason) {\n    if (s.door === 'OPEN') {\n        record('LOCK_BLOCKED', 'Sensor menunjukkan pintu terbuka');\n        return;\n    }\n    if (s.lock !== 'LOCKED') {\n        s.lock = 'LOCKED';\n        s.unlockedAt = 0;\n        s.openedAfterUnlock = false;\n        record('DOOR_LOCKED', reason);\n    }\n}\n\nconst operational = ['NORMAL','AFTERHOURS','SILENCE'];\nconst simulated = ['RFID_VALID','RFID_INVALID','PIN_VALID','PIN_INVALID',\n  'DOOR_OPEN','DOOR_CLOSED','MOTION_ON','MOTION_OFF','LOCK','RESET','INIT'];\nconst isTick = command === 'TICK';\nconst fromDashboard = topic === 'smartlab/security/cmd';\nconst fromSimulator = topic === 'smartlab/security/sim/cmd';\n\nif (!isTick && !(fromDashboard && operational.includes(command)) &&\n    !(fromSimulator && [...operational, ...simulated].includes(command))) {\n    node.warn('Perintah diabaikan dari topic ' + topic + ': ' + command);\n    return null;\n}\n\nif (isTick) {\n    if (s.lock === 'UNLOCKED' && s.door === 'CLOSED' &&\n        !s.openedAfterUnlock && now - s.unlockedAt >= 10000) {\n        lock('Auto-lock setelah 10 detik');\n    }\n} else {\n    switch (command) {\n        case 'NORMAL':\n            s.mode = 'NORMAL';\n            record('MODE_CHANGE', 'Mode NORMAL');\n            break;\n        case 'AFTERHOURS':\n            s.mode = 'AFTERHOURS';\n            record('MODE_CHANGE', 'Mode AFTERHOURS');\n            if (s.motion && s.lock === 'LOCKED') alarm('INTRUSI_PIR');\n            break;\n        case 'SILENCE':\n            if (s.alarm) {\n                s.buzzerSilenced = true;\n                s.buzzer = false;\n                record('ALARM_SILENCED', 'Buzzer dimatikan, alarm tetap aktif');\n            }\n            break;\n        case 'RFID_VALID': unlock('RFID'); break;\n        case 'PIN_VALID': unlock('KEYPAD'); break;\n        case 'RFID_INVALID':\n            if (!s.alarm && s.lock === 'LOCKED') {\n                s.failedRFID++;\n                record('RFID_DENIED', 'Kartu tidak terdaftar (' + s.failedRFID + '/3)');\n                if (s.failedRFID >= 3) alarm('RFID_GAGAL_3X');\n            }\n            break;\n        case 'PIN_INVALID':\n            if (!s.alarm && s.lock === 'LOCKED') {\n                s.failedPIN++;\n                record('PIN_DENIED', 'PIN salah (' + s.failedPIN + '/3)');\n                if (s.failedPIN >= 3) alarm('PIN_GAGAL_3X');\n            }\n            break;\n        case 'DOOR_OPEN':\n            if (s.door !== 'OPEN') {\n                s.door = 'OPEN';\n                record('DOOR_OPEN', 'Pintu terbuka');\n                if (s.lock === 'LOCKED') alarm('PINTU_DIBUKA_PAKSA');\n                else s.openedAfterUnlock = true;\n            }\n            break;\n        case 'DOOR_CLOSED':\n            if (s.door !== 'CLOSED') {\n                s.door = 'CLOSED';\n                record('DOOR_CLOSED', 'Pintu tertutup');\n                if (s.lock === 'UNLOCKED' && s.openedAfterUnlock) {\n                    lock('Otomatis setelah pintu ditutup');\n                }\n            }\n            break;\n        case 'MOTION_ON':\n            if (!s.motion) {\n                s.motion = true;\n                record('MOTION_DETECTED', 'Gerakan PIR');\n                if (s.mode === 'AFTERHOURS' && s.lock === 'LOCKED') alarm('INTRUSI_PIR');\n            }\n            break;\n        case 'MOTION_OFF':\n            if (s.motion) {\n                s.motion = false;\n                record('MOTION_CLEARED', 'Gerakan berhenti');\n            }\n            break;\n        case 'LOCK': lock('Perintah simulasi'); break;\n        case 'RESET':\n            if (s.door === 'OPEN' || (s.mode === 'AFTERHOURS' && s.motion)) {\n                record('RESET_DENIED', 'Tutup pintu dan pastikan tidak ada intrusi');\n            } else {\n                s.alarm = false;\n                s.reason = '';\n                s.buzzer = false;\n                s.relay = false;\n                s.buzzerSilenced = false;\n                s.failedRFID = 0;\n                s.failedPIN = 0;\n                s.lock = 'LOCKED';\n                s.unlockedAt = 0;\n                s.openedAfterUnlock = false;\n                record('ALARM_RESET', 'Reset lokal simulator berhasil');\n            }\n            break;\n        case 'INIT':\n            s = {door:'CLOSED',lock:'LOCKED',motion:false,alarm:false,\n                 reason:'',buzzer:false,relay:false,mode:'NORMAL',\n                 failedRFID:0,failedPIN:0,lastAccess:'—',\n                 unlockedAt:0,openedAfterUnlock:false,buzzerSilenced:false};\n            record('SIM_INIT', 'Simulator diinisialisasi ulang');\n            break;\n    }\n}\ncontext.set('state', s);\nnode.status({fill:s.alarm?'red':'green',shape:'dot',\n    text:s.alarm?'ALARM '+s.reason:s.mode+' '+s.door+'/'+s.lock});\n\n// Format ini cocok dengan State + event log pada dashboard V1.\nconst telemetry = {\n    topic: TELE, qos: '0', retain: 'false',\n    payload: JSON.stringify({\n        door:s.door, lock:s.lock, motion:s.motion, mode:s.mode,\n        alarm:s.alarm, reason:s.reason, buzzer:s.buzzer, relay:s.relay,\n        failedRFID:s.failedRFID, failedPIN:s.failedPIN,\n        lastAccess:s.lastAccess\n    })\n};\nreturn [telemetry, events.length ? events : null];\n",
+        "outputs": 2,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 470,
+        "y": 600,
+        "wires": [
+            [
+                "smartlab_v2_tele_out",
+                "smartlab_v2_debug"
+            ],
+            [
+                "smartlab_v2_event_out"
+            ]
+        ]
+    },
+    {
+        "id": "smartlab_v2_tele_out",
+        "type": "mqtt out",
+        "z": "sl_tab",
+        "name": "V2 Telemetry -> Dashboard",
+        "topic": "",
+        "qos": "",
+        "retain": "",
+        "respTopic": "",
+        "contentType": "",
+        "userProps": "",
+        "correl": "",
+        "expiry": "",
+        "broker": "sl_broker",
+        "x": 790,
+        "y": 560,
+        "wires": []
+    },
+    {
+        "id": "smartlab_v2_event_out",
+        "type": "mqtt out",
+        "z": "sl_tab",
+        "name": "V2 Security Event -> Dashboard",
+        "topic": "",
+        "qos": "",
+        "retain": "",
+        "respTopic": "",
+        "contentType": "",
+        "userProps": "",
+        "correl": "",
+        "expiry": "",
+        "broker": "sl_broker",
+        "x": 810,
+        "y": 640,
+        "wires": []
+    },
+    {
+        "id": "smartlab_v2_debug",
+        "type": "debug",
+        "z": "sl_tab",
+        "name": "V2 Telemetry Debug",
+        "active": false,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 810,
+        "y": 600,
+        "wires": []
+    },
+    {
+        "id": "sl_v3_panel",
+        "type": "ui-template",
+        "z": "sl_tab",
+        "group": "sl_group",
+        "page": "",
+        "ui": "",
+        "name": "V3 Simulation Control Panel",
+        "order": 2,
+        "width": "12",
+        "height": "7",
+        "head": "",
+        "format": "<template>\n <section class=\"sim3-wrap\">\n  <header class=\"sim3-head\"><div><strong>SECURITY SIMULATION CONTROL</strong><small>Pengujian virtual tanpa ESP32 — perintah dipublikasikan lewat MQTT</small></div><span class=\"sim3-badge\">SIMULATOR ONLY</span></header>\n  <div class=\"sim3-grid\">\n   <div class=\"sim3-box\"><h4>ACCESS TEST</h4><div class=\"sim3-buttons\"><button class=\"sim3-good\" @click=\"emit('RFID_VALID')\">RFID VALID</button><button @click=\"emit('RFID_INVALID')\">RFID INVALID</button><button class=\"sim3-good\" @click=\"emit('PIN_VALID')\">PIN VALID</button><button @click=\"emit('PIN_INVALID')\">PIN INVALID</button></div></div>\n   <div class=\"sim3-box\"><h4>DOOR & PIR</h4><div class=\"sim3-buttons\"><button @click=\"emit('DOOR_OPEN')\">DOOR OPEN</button><button class=\"sim3-good\" @click=\"emit('DOOR_CLOSED')\">DOOR CLOSED</button><button @click=\"emit('MOTION_ON')\">MOTION ON</button><button class=\"sim3-good\" @click=\"emit('MOTION_OFF')\">MOTION OFF</button></div></div>\n   <div class=\"sim3-box\"><h4>SYSTEM CONTROLS</h4><div class=\"sim3-buttons\"><button @click=\"emit('LOCK')\">LOCK</button><button @click=\"emit('SILENCE')\">SILENCE</button><button class=\"sim3-warn\" @click=\"requestReset\">RESET ALARM</button><button class=\"sim3-warn\" @click=\"requestInit\">INIT SIMULATOR</button></div></div>\n  </div>\n  <footer class=\"sim3-foot\"><span>MQTT: smartlab/security/sim/cmd</span><span>{{ notice }}</span></footer>\n </section>\n</template>\n<script>\nexport default {\n data(){return {notice:'Siap untuk pengujian virtual'}},\n methods:{\n  emit(cmd){this.notice='Dikirim: '+cmd;this.send({topic:'smartlab/security/sim/cmd',payload:cmd})},\n  requestReset(){if(window.confirm('Reset alarm pada SIMULATOR?'))this.emit('RESET')},\n  requestInit(){if(window.confirm('Inisialisasi ulang semua status SIMULATOR?'))this.emit('INIT')}\n }\n}\n</script>\n<style>\n.sim3-wrap{background:#1d2329;color:#eef7fc;border-radius:8px;overflow:hidden;font-family:Arial,system-ui,sans-serif;margin-top:8px}.sim3-head{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:14px 18px;background:#17363b;border-bottom:2px solid #11aebb}.sim3-head strong{display:block;font-size:14px;letter-spacing:.3px}.sim3-head small{display:block;color:#aac6cb;font-size:11px;margin-top:4px}.sim3-badge{color:#f9d17d;border:1px solid #836e38;border-radius:20px;padding:6px 10px;font-size:10px;white-space:nowrap}.sim3-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;padding:12px}.sim3-box{background:#252e36;border:1px solid #35444d;border-radius:5px;padding:13px;min-width:0}.sim3-box h4{margin:0 0 12px;font-size:11px;color:#aad0d9;letter-spacing:.6px}.sim3-buttons{display:grid;grid-template-columns:1fr 1fr;gap:7px}.sim3-buttons button{border:0;border-radius:4px;background:#9d4539;color:white;font-size:11px;font-weight:bold;padding:11px 5px;min-height:39px;cursor:pointer}.sim3-buttons button:hover{filter:brightness(1.15)}.sim3-buttons button:focus-visible{outline:2px solid #f4d074;outline-offset:2px}.sim3-buttons button.sim3-good{background:#087d60}.sim3-buttons button.sim3-warn{background:#a45d16}.sim3-foot{padding:4px 15px 13px;display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;color:#9eafb8;font-size:10px}@media(max-width:850px){.sim3-grid{grid-template-columns:1fr}}@media(max-width:480px){.sim3-head{flex-wrap:wrap}.sim3-buttons{grid-template-columns:1fr 1fr}}\n</style>",
+        "storeOutMessages": true,
+        "passthru": false,
+        "resendOnRefresh": true,
+        "templateScope": "local",
+        "className": "",
+        "x": 160,
+        "y": 730,
+        "wires": [
+            [
+                "sl_v3_guard"
+            ]
+        ]
+    },
+    {
+        "id": "sl_v3_guard",
+        "type": "function",
+        "z": "sl_tab",
+        "name": "V3 Validate simulation commands",
+        "func": "// Hanya menerima perintah dari panel simulasi V3.\n// Topic khusus SIMULASI; tidak boleh digunakan untuk membuka pintu fisik.\nconst allowed = new Set([\n  'RFID_VALID','RFID_INVALID','PIN_VALID','PIN_INVALID',\n  'DOOR_OPEN','DOOR_CLOSED','MOTION_ON','MOTION_OFF',\n  'LOCK','SILENCE','RESET','INIT'\n]);\nif (msg.topic !== 'smartlab/security/sim/cmd') return null;\nconst command = String(msg.payload || '').trim().toUpperCase();\nif (!allowed.has(command)) {\n  node.warn('Perintah simulasi tidak dikenal: ' + command);\n  return null;\n}\nreturn {topic:'smartlab/security/sim/cmd',payload:command,qos:'0',retain:'false'};",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 450,
+        "y": 730,
+        "wires": [
+            [
+                "sl_v3_out",
+                "sl_v3_debug"
+            ]
+        ]
+    },
+    {
+        "id": "sl_v3_out",
+        "type": "mqtt out",
+        "z": "sl_tab",
+        "name": "V3 Simulation Command Publisher",
+        "topic": "smartlab/security/sim/cmd",
+        "qos": "0",
+        "retain": "false",
+        "respTopic": "",
+        "contentType": "",
+        "userProps": "",
+        "correl": "",
+        "expiry": "",
+        "broker": "sl_broker",
+        "x": 740,
+        "y": 710,
+        "wires": []
+    },
+    {
+        "id": "sl_v3_debug",
+        "type": "debug",
+        "z": "sl_tab",
+        "name": "V3 Simulation Command Debug",
+        "active": false,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 740,
+        "y": 750,
+        "wires": []
+    },
+    {
+        "id": "a3ece15750b8356a",
+        "type": "mqtt in",
+        "z": "sl_tab",
+        "name": "V4 Hardware Telemetry Receiver",
+        "topic": "smartlab/security/hardware/#",
+        "qos": "0",
+        "datatype": "auto-detect",
+        "broker": "c5c816cab8993e8d",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 170,
+        "y": 840,
+        "wires": [
+            [
+                "f79a12af3dd2c466",
+                "ec12e54a12f5ab5d",
+                "e1740e260024206a"
+            ]
+        ]
+    },
+    {
+        "id": "1e9ac8de2b122d27",
+        "type": "debug",
+        "z": "sl_tab",
+        "name": "V4 Hardware MQTT Debug",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "true",
+        "targetType": "full",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 900,
+        "y": 840,
+        "wires": []
+    },
+    {
+        "id": "f79a12af3dd2c466",
+        "type": "function",
+        "z": "sl_tab",
+        "name": "V4 Hardware State Processor",
+        "func": "\n // V4 Tahap 10 — Hardware State Processor\n // Memproses telemetry ESP32-S3 fisik.\n // Tidak mencampurkan data simulator V3 (MQTT 1883)\n // dengan hardware V4 (MQTT 1884).\n\nconst TOPIC = 'smartlab/security/hardware/telemetry';\n\n// Hanya proses telemetry hardware.\nif (msg.topic !== TOPIC) return null;\n\n// Parsing JSON\nlet p;\n\ntry {\n    p = (typeof msg.payload === 'string')\n        ? JSON.parse(msg.payload)\n        : msg.payload;\n} catch (e) {\n    node.warn('Telemetry JSON invalid');\n    return null;\n}\n\n// Validasi payload\nif (!p || typeof p !== 'object' || Array.isArray(p)) {\n    return null;\n}\n\nconst enumOK = (v, arr) => arr.includes(v);\n\n// Validasi parameter wajib\nif (\n    !enumOK(p.door, ['OPEN', 'CLOSED']) ||\n    !enumOK(p.lock, ['LOCKED', 'UNLOCKED']) ||\n    !enumOK(p.mode, ['NORMAL', 'AFTERHOURS']) ||\n    typeof p.motion !== 'boolean' ||\n    typeof p.alarm !== 'boolean'\n) {\n    node.warn('Hardware telemetry required fields invalid');\n    return null;\n}\n\n// Membatasi nilai counter\nconst boundedInt = v =>\n    Number.isInteger(v)\n        ? Math.max(0, Math.min(999, v))\n        : 0;\n\n// Menyusun state hardware\nconst state = {\n    source: 'HARDWARE',\n\n    device: String(\n        p.device || 'ESP32-S3'\n    ).slice(0, 32),\n\n    door: p.door,\n\n    // Status perintah servo,\n    // bukan bukti penguncian mekanis.\n    lock: p.lock,\n\n    lock_verified: p.lock_verified === true,\n\n    motion: p.motion,\n\n    alarm: p.alarm,\n\n    mode: p.mode,\n\n    buzzer: typeof p.buzzer === 'boolean'\n        ? p.buzzer\n        : null,\n\n    relay: typeof p.relay === 'boolean'\n        ? p.relay\n        : null,\n\n    buzzer_silenced: p.buzzer_silenced === true,\n\n    pir_ready: p.pir_ready === true,\n\n    failedRFID: boundedInt(p.failedRFID),\n\n    failedPIN: boundedInt(p.failedPIN),\n\n    lastAccess: String(\n        p.lastAccess || 'NONE'\n    ).slice(0, 20),\n\n    alarm_reason: String(\n        p.alarm_reason || ''\n    ).slice(0, 80),\n\n    lastUpdate: new Date().toISOString()\n};\n\n// Simpan state hardware secara terpisah.\nflow.set('smartlab_v4_hardware_state', state);\n\n// Perbarui status Function Node\nnode.status({\n    fill: state.alarm ? 'red' : 'green',\n    shape: 'dot',\n    text: state.door + '/' + state.lock +\n        (state.alarm ? ' ALARM' : '')\n});\n\n// Kirim data menuju Debug dan Dashboard V4.\nreturn {\n    topic: 'smartlab/security/hardware/state',\n    payload: state\n};\n",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 530,
+        "y": 840,
+        "wires": [
+            [
+                "1e9ac8de2b122d27",
+                "116f7799ced68d7d"
+            ]
+        ]
+    },
+    {
+        "id": "ec12e54a12f5ab5d",
+        "type": "debug",
+        "z": "sl_tab",
+        "name": "V4 ESP32 Heartbeat Debug",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "true",
+        "targetType": "full",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 460,
+        "y": 920,
+        "wires": []
+    },
+    {
+        "id": "116f7799ced68d7d",
+        "type": "ui-template",
+        "z": "sl_tab",
+        "group": "sl_group",
+        "page": "",
+        "ui": "",
+        "name": "V4 Hardware Monitoring Panel",
+        "order": 2,
+        "width": "12",
+        "height": "7",
+        "head": "",
+        "format": "\n<template>\n  <div class=\"hw10-shell\">\n    <div class=\"hw10-head\">\n      <div>\n        <strong>SMART LAB — HARDWARE MONITORING V4</strong>\n        <div class=\"hw10-sub\">\n          ESP32-S3 • Physical system • MQTT 1884\n        </div>\n      </div>\n\n      <span :class=\"['hw10-pill', fresh ? 'live' : 'stale']\">\n        {{ fresh ? '● LIVE HARDWARE' : '○ OFFLINE / STALE' }}\n      </span>\n    </div>\n\n    <div class=\"hw10-grid\">\n\n      <div class=\"hw10-card\">\n        <label>DOOR SENSOR · GPIO21</label>\n        <strong :class=\"fresh ? (s.door === 'OPEN' ? 'red' : 'green') : 'muted'\">\n          {{ fresh ? s.door : 'UNKNOWN' }}\n        </strong>\n      </div>\n\n      <div class=\"hw10-card\">\n        <label>PIR MOTION · GPIO38</label>\n        <strong :class=\"fresh ? (s.motion ? 'yellow' : 'green') : 'muted'\">\n          {{ fresh\n            ? (s.pir_ready\n                ? (s.motion ? 'DETECTED' : 'CLEAR')\n                : 'WARMING UP')\n            : 'UNKNOWN' }}\n        </strong>\n      </div>\n\n      <div class=\"hw10-card\">\n        <label>SERVO COMMAND · GPIO40</label>\n        <strong :class=\"fresh ? 'white' : 'muted'\">\n          {{ fresh ? s.lock : 'UNKNOWN' }}\n        </strong>\n        <small>\n          {{ fresh\n            ? (s.lock_verified\n                ? 'Feedback verified'\n                : 'Command only • NOT VERIFIED')\n            : 'Waiting for telemetry' }}\n        </small>\n      </div>\n\n      <div class=\"hw10-card\">\n        <label>SECURITY ALARM</label>\n        <strong :class=\"fresh ? (s.alarm ? 'red' : 'green') : 'muted'\">\n          {{ fresh\n            ? (s.alarm ? 'TRIGGERED' : 'NORMAL')\n            : 'UNKNOWN' }}\n        </strong>\n        <small>\n          {{ fresh && s.alarm\n            ? (s.alarm_reason || 'Alarm active')\n            : 'Logical alarm status' }}\n        </small>\n      </div>\n\n      <div class=\"hw10-card\">\n        <label>BUZZER · GPIO42</label>\n        <strong :class=\"fresh ? (s.buzzer ? 'yellow' : 'green') : 'muted'\">\n          {{ fresh ? fmtBool(s.buzzer) : 'UNKNOWN' }}\n        </strong>\n        <small>\n          {{ fresh && s.buzzer_silenced\n            ? 'Silenced by local keypad'\n            : 'Commanded output' }}\n        </small>\n      </div>\n\n      <div class=\"hw10-card\">\n        <label>RELAY · GPIO41</label>\n        <strong :class=\"fresh ? (s.relay ? 'yellow' : 'green') : 'muted'\">\n          {{ fresh ? fmtBool(s.relay) : 'UNKNOWN' }}\n        </strong>\n        <small>GPIO command • contacts not verified</small>\n      </div>\n\n      <div class=\"hw10-card\">\n        <label>FAILED RFID</label>\n        <strong :class=\"fresh && s.failedRFID >= 3 ? 'red' : 'white'\">\n          {{ fresh ? s.failedRFID + '/3' : '—' }}\n        </strong>\n      </div>\n\n      <div class=\"hw10-card\">\n        <label>FAILED PIN</label>\n        <strong :class=\"fresh && s.failedPIN >= 3 ? 'red' : 'white'\">\n          {{ fresh ? s.failedPIN + '/3' : '—' }}\n        </strong>\n      </div>\n\n      <div class=\"hw10-card\">\n        <label>ACCESS METHOD</label>\n        <strong class=\"white\">\n          {{ fresh ? s.lastAccess : '—' }}\n        </strong>\n      </div>\n\n      <div class=\"hw10-card\">\n        <label>SECURITY MODE</label>\n        <strong class=\"white\">\n          {{ fresh ? s.mode : '—' }}\n        </strong>\n      </div>\n\n    </div>\n\n    <div class=\"hw10-foot\">\n      <span>Source: {{ s.source || 'WAITING' }}</span>\n      <span>Last received: {{ receivedAt || 'Never' }}</span>\n      <span>\n        Age: {{\n          receivedMs\n            ? Math.floor((now - receivedMs) / 1000) + 's'\n            : '—'\n        }}\n      </span>\n    </div>\n  </div>\n</template>\n\n<script>\nexport default {\n  data() {\n    return {\n      s: {},\n      receivedMs: 0,\n      receivedAt: '',\n      now: Date.now(),\n      ticker: null\n    };\n  },\n\n  computed: {\n    fresh() {\n      return this.receivedMs > 0 &&\n        (this.now - this.receivedMs) < 10000;\n    }\n  },\n\n  methods: {\n    fmtBool(x) {\n      return x === true\n        ? 'ON'\n        : x === false\n          ? 'OFF'\n          : 'UNKNOWN';\n    }\n  },\n\n  watch: {\n    msg: {\n      deep: true,\n\n      handler(m) {\n        if (\n          !m ||\n          m.topic !== 'smartlab/security/hardware/state' ||\n          !m.payload ||\n          typeof m.payload !== 'object'\n        ) {\n          return;\n        }\n\n        if (m.payload.source !== 'HARDWARE') {\n          return;\n        }\n\n        this.s = { ...m.payload };\n        this.receivedMs = Date.now();\n        this.now = this.receivedMs;\n\n        this.receivedAt =\n          new Date().toLocaleTimeString('id-ID');\n      }\n    }\n  },\n\n  mounted() {\n    this.ticker = setInterval(() => {\n      this.now = Date.now();\n    }, 1000);\n  },\n\n  unmounted() {\n    if (this.ticker) {\n      clearInterval(this.ticker);\n    }\n  }\n};\n</script>\n\n<style>\n.hw10-shell {\n  background: #192127;\n  color: #f1f5f9;\n  border-radius: 12px;\n  padding: 18px;\n  font-family: Arial, sans-serif;\n}\n\n.hw10-head {\n  display: flex;\n  flex-wrap: wrap;\n  align-items: center;\n  justify-content: space-between;\n  gap: 12px;\n  border-bottom: 2px solid #00a8af;\n  padding-bottom: 14px;\n}\n\n.hw10-head strong {\n  color: #69d9da;\n  font-size: 15px;\n}\n\n.hw10-sub {\n  color: #acc2cb;\n  font-size: 12px;\n  margin-top: 6px;\n}\n\n.hw10-pill {\n  border-radius: 20px;\n  padding: 8px 12px;\n  font-size: 11px;\n  font-weight: 700;\n}\n\n.hw10-pill.live {\n  background: #064e3b;\n  color: #6ee7b7;\n}\n\n.hw10-pill.stale {\n  background: #4b2626;\n  color: #fca5a5;\n}\n\n.hw10-grid {\n  display: grid;\n  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));\n  gap: 12px;\n  margin-top: 16px;\n}\n\n.hw10-card {\n  background: #273039;\n  border-left: 4px solid #00b1b8;\n  border-radius: 6px;\n  padding: 15px;\n  display: flex;\n  flex-direction: column;\n  gap: 8px;\n  min-width: 0;\n}\n\n.hw10-card label {\n  font-size: 11px;\n  font-weight: 700;\n  color: #b0c6cf;\n}\n\n.hw10-card strong {\n  font-size: 19px;\n  overflow-wrap: anywhere;\n}\n\n.hw10-card small {\n  font-size: 11px;\n  color: #a9bcc7;\n}\n\n.hw10-card .green {\n  color: #5ee3a4;\n}\n\n.hw10-card .red {\n  color: #ff7373;\n}\n\n.hw10-card .yellow {\n  color: #f9c74f;\n}\n\n.hw10-card .white {\n  color: #f1f5f9;\n}\n\n.hw10-card .muted {\n  color: #94a3b8;\n}\n\n.hw10-foot {\n  display: flex;\n  flex-wrap: wrap;\n  justify-content: space-between;\n  gap: 8px;\n  margin-top: 15px;\n  color: #a9bcc7;\n  font-size: 11px;\n}\n</style>\n",
+        "storeOutMessages": true,
+        "passthru": false,
+        "resendOnRefresh": true,
+        "templateScope": "local",
+        "className": "",
+        "x": 790,
+        "y": 920,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "e1740e260024206a",
+        "type": "function",
+        "z": "sl_tab",
+        "name": "V4 Hardware Event Processor",
+        "func": "\nconst TOPIC = \"smartlab/security/hardware/event\";\n\nif (msg.topic !== TOPIC) {\n    return null;\n}\n\nlet data;\n\ntry {\n    data = typeof msg.payload === \"string\"\n        ? JSON.parse(msg.payload)\n        : msg.payload;\n} catch (err) {\n    node.warn(\"Hardware event JSON tidak valid\");\n    return null;\n}\n\nif (!data || typeof data !== \"object\" ||\n    data.source !== \"HARDWARE\" ||\n    typeof data.type !== \"string\") {\n    return null;\n}\n\nconst event = {\n    time: new Date().toLocaleTimeString(\"id-ID\"),\n    type: data.type.slice(0, 40),\n    detail: String(data.detail || \"\").slice(0, 100),\n    source: \"HARDWARE\"\n};\n\nlet events = flow.get(\"smartlab_v4_events\") || [];\n\nevents.unshift(event);\nevents = events.slice(0, 30);\n\nflow.set(\"smartlab_v4_events\", events);\n\nnode.status({\n    fill: event.type.includes(\"DENIED\") ||\n          event.type.includes(\"ALARM\")\n          ? \"red\" : \"green\",\n    shape: \"dot\",\n    text: event.type\n});\n\nreturn {\n    topic: \"smartlab/security/hardware/eventlog\",\n    payload: events\n};\n",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 450,
+        "y": 980,
+        "wires": [
+            [
+                "8e92585b7bd83c8f"
+            ]
+        ]
+    },
+    {
+        "id": "8e92585b7bd83c8f",
+        "type": "ui-template",
+        "z": "sl_tab",
+        "group": "sl_group",
+        "page": "",
+        "ui": "",
+        "name": "V4 Hardware Event Log Panel",
+        "order": 2,
+        "width": "12",
+        "height": "7",
+        "head": "",
+        "format": "\n<template>\n  <div class=\"ev4-shell\">\n    <div class=\"ev4-heading\">\n      <strong>HARDWARE SECURITY EVENTS</strong>\n      <span>ESP32-S3 · RFID & KEYPAD</span>\n    </div>\n\n    <div class=\"ev4-table-wrap\">\n      <table class=\"ev4-table\">\n        <thead>\n          <tr>\n            <th>TIME</th>\n            <th>EVENT</th>\n            <th>DETAIL</th>\n          </tr>\n        </thead>\n\n        <tbody>\n          <tr v-for=\"(e, i) in events\" :key=\"i\">\n            <td>{{ e.time }}</td>\n            <td :class=\"eventColor(e.type)\">\n              {{ e.type }}\n            </td>\n            <td>{{ e.detail }}</td>\n          </tr>\n\n          <tr v-if=\"events.length === 0\">\n            <td colspan=\"3\">\n              Menunggu event dari ESP32-S3...\n            </td>\n          </tr>\n        </tbody>\n      </table>\n    </div>\n\n    <div class=\"ev4-footer\">\n      Source: HARDWARE · Events: {{ events.length }}\n    </div>\n  </div>\n</template>\n\n<script>\nexport default {\n  data() {\n    return {\n      events: []\n    };\n  },\n\n  watch: {\n    msg: {\n      handler(m) {\n        if (m?.topic !==\n          \"smartlab/security/hardware/eventlog\") {\n          return;\n        }\n\n        if (Array.isArray(m.payload)) {\n          this.events = m.payload;\n        }\n      },\n      deep: true\n    }\n  },\n\n  methods: {\n    eventColor(type) {\n      if (type.includes(\"DENIED\") ||\n          type.includes(\"ALARM\") ||\n          type.includes(\"BLOCKED\")) {\n        return \"ev4-danger\";\n      }\n\n      if (type === \"ACCESS_GRANTED\") {\n        return \"ev4-success\";\n      }\n\n      return \"ev4-neutral\";\n    }\n  }\n};\n</script>\n\n<style>\n.ev4-shell {\n  background: #192127;\n  color: #f1f5f9;\n  border-radius: 12px;\n  padding: 18px;\n  font-family: Arial, sans-serif;\n}\n\n.ev4-heading {\n  border-bottom: 2px solid #00a8af;\n  padding-bottom: 14px;\n  display: flex;\n  justify-content: space-between;\n  gap: 12px;\n  flex-wrap: wrap;\n}\n\n.ev4-heading strong {\n  color: #69d9da;\n  font-size: 15px;\n}\n\n.ev4-heading span,\n.ev4-footer {\n  color: #a9bcc7;\n  font-size: 11px;\n}\n\n.ev4-table-wrap {\n  max-height: 320px;\n  overflow: auto;\n}\n\n.ev4-table {\n  width: 100%;\n  border-collapse: collapse;\n  font-size: 12px;\n}\n\n.ev4-table th {\n  text-align: left;\n  color: #a9bcc7;\n  padding: 12px;\n  border-bottom: 1px solid #40515b;\n}\n\n.ev4-table td {\n  padding: 12px;\n  border-bottom: 1px solid #34444c;\n}\n\n.ev4-success {\n  color: #5ee3a4;\n  font-weight: bold;\n}\n\n.ev4-danger {\n  color: #ff7373;\n  font-weight: bold;\n}\n\n.ev4-neutral {\n  color: #e2e8f0;\n}\n\n.ev4-footer {\n  padding-top: 12px;\n}\n</style>\n",
+        "storeOutMessages": true,
+        "passthru": false,
+        "resendOnRefresh": true,
+        "templateScope": "local",
+        "className": "",
+        "x": 770,
+        "y": 980,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "sl_group",
+        "type": "ui-group",
+        "name": "Main Dashboard",
+        "page": "sl_page",
+        "width": "12",
+        "height": "16",
+        "order": 1,
+        "showTitle": false,
+        "className": "",
+        "visible": "true",
+        "disabled": "false",
+        "groupType": "default",
+        "tab": ""
+    },
+    {
+        "id": "sl_broker",
+        "type": "mqtt-broker",
+        "name": "SmartLab MQTT LOCAL - edit",
+        "broker": "127.0.0.1",
+        "port": "1883",
+        "clientid": "",
+        "autoConnect": true,
+        "usetls": false,
+        "protocolVersion": "4",
+        "keepalive": "60",
+        "cleansession": true,
+        "autoUnsubscribe": true,
+        "birthTopic": "",
+        "birthQos": "0",
+        "birthPayload": "",
+        "birthMsg": {},
+        "closeTopic": "",
+        "closeQos": "0",
+        "closePayload": "",
+        "closeMsg": {},
+        "willTopic": "",
+        "willQos": "0",
+        "willPayload": "",
+        "willMsg": {},
+        "userProps": "",
+        "sessionExpiry": ""
+    },
+    {
+        "id": "c5c816cab8993e8d",
+        "type": "mqtt-broker",
+        "name": "SmartLab Hardware MQTT 1884",
+        "broker": "10.211.191.153",
+        "port": "1884",
+        "clientid": "",
+        "autoConnect": true,
+        "usetls": false,
+        "protocolVersion": 4,
+        "keepalive": 60,
+        "cleansession": true,
+        "autoUnsubscribe": true,
+        "birthTopic": "",
+        "birthQos": "0",
+        "birthRetain": "false",
+        "birthPayload": "",
+        "birthMsg": {},
+        "closeTopic": "",
+        "closeQos": "0",
+        "closeRetain": "false",
+        "closePayload": "",
+        "closeMsg": {},
+        "willTopic": "",
+        "willQos": "0",
+        "willRetain": "false",
+        "willPayload": "",
+        "willMsg": {},
+        "userProps": "",
+        "sessionExpiry": ""
+    },
+    {
+        "id": "sl_page",
+        "type": "ui-page",
+        "name": "Security Center",
+        "ui": "c66edf7708b657c2",
+        "path": "security",
+        "icon": "shield-lock",
+        "layout": "grid",
+        "theme": "sl_theme",
+        "breakpoints": [
+            {
+                "name": "Default",
+                "px": "0",
+                "cols": "3"
+            },
+            {
+                "name": "Tablet",
+                "px": "576",
+                "cols": "6"
+            },
+            {
+                "name": "Desktop",
+                "px": "1024",
+                "cols": "12"
+            }
+        ],
+        "tabs": [],
+        "order": 1,
+        "className": "",
+        "visible": "true",
+        "disabled": "false"
+    },
+    {
+        "id": "c66edf7708b657c2",
+        "type": "ui-base",
+        "name": "Monitoring IoT",
+        "path": "/dashboard",
+        "appIcon": "",
+        "includeClientData": true,
+        "acceptsClientConfig": [
+            "ui-notification",
+            "ui-control"
+        ],
+        "showPathInSidebar": false,
+        "headerContent": "page",
+        "navigationStyle": "default",
+        "titleBarStyle": "default",
+        "showReconnectNotification": true,
+        "notificationDisplayTime": 1,
+        "showDisconnectNotification": true,
+        "allowInstall": false
+    },
+    {
+        "id": "sl_theme",
+        "type": "ui-theme",
+        "name": "SmartLab Dark",
+        "colors": {
+            "surface": "#1e2328",
+            "primary": "#008b8f",
+            "bgPage": "#14191e",
+            "groupBg": "#20262b",
+            "groupOutline": "#303b43"
+        },
+        "sizes": {
+            "density": "compact",
+            "pagePadding": "8px",
+            "groupGap": "8px",
+            "groupBorderRadius": "5px",
+            "widgetGap": "8px"
+        }
+    },
+    {
+        "id": "61a3e853733805bd",
+        "type": "global-config",
+        "env": [],
+        "modules": {
+            "@flowfuse/node-red-dashboard": "1.33.0"
+        }
+    }
+]
